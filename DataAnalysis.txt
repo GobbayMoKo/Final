@@ -1,0 +1,192 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+food_delivery_data = 'Food_Delivery_Times.csv'
+df = pd.read_csv(food_delivery_data)
+df.head()
+df.info()
+
+df = df.dropna()
+df = df.drop(columns = 'Order_ID', axis = 1)
+df = df[(df != 0).all(axis=1)]
+# Cleaned data set
+df.info()
+
+float(df['Distance_km'].min())
+float(df['Distance_km'].max())
+
+float(df['Preparation_Time_min'].min())
+float(df['Preparation_Time_min'].max())
+
+float(df['Courier_Experience_yrs'].min())
+float(df['Courier_Experience_yrs'].max())
+
+df.head()
+
+float(df['Delivery_Time_min'].median())
+float(df['Delivery_Time_min'].mean())
+float(df['Delivery_Time_min'].min())
+float(df['Delivery_Time_min'].max())
+
+#box and whisker plots
+sns.boxplot(data=df, x='Delivery_Time_min')
+plt.title('Boxplot of Devlivery Times (Min)')
+
+#histogram of delivery times
+sns.histplot(data=df, x='Delivery_Time_min')
+plt.title('Distribution of Devlivery Times (Min)')
+
+# Distance against Delivery Time
+sns.scatterplot(data=df, x='Distance_km', y='Delivery_Time_min')
+plt.title('Distance (km) vs Delivery Time (Min)')
+
+# Weather against Delivery Time
+sns.barplot(data=df, x='Weather', y='Delivery_Time_min')
+plt.title('Weather conditions vs Delivery Time (Min)')
+
+# Traffic Level against Delivery Time
+sns.barplot(data=df, x='Traffic_Level', y='Delivery_Time_min')
+plt.title('Traffic Level vs Delivery Time (Min)')
+
+# Time of Day against Delivery Time
+sns.barplot(data=df, x='Time_of_Day', y='Delivery_Time_min')
+plt.title('Time of Day vs Delivery Time (Min)')
+
+# Vehicle Type against Delivery Time
+sns.barplot(data=df, x='Vehicle_Type', y='Delivery_Time_min')
+plt.title('Vehicle Type vs Delivery Time (Min)')
+
+# Preparation Time against Delivery Time
+sns.barplot(data=df, x='Preparation_Time_min', y='Delivery_Time_min')
+plt.title('Preparation Time vs Delivery Time (Min)')
+
+# Courier Years of Experience (Years) against Delivery Time
+sns.barplot(data=df, x='Courier_Experience_yrs', y='Delivery_Time_min')
+plt.title('Courier Years of Experience vs Delivery Time (Min)')
+
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import plot_tree
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.compose import make_column_transformer
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from sklearn.pipeline import Pipeline
+from sklearn.inspection import permutation_importance
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import GradientBoostingRegressor
+
+#BASELINE MODEL
+
+y = df['Delivery_Time_min']
+baseline_preds = np.ones(len(y)) * y.mean()
+mean_squared_error(y, baseline_preds)
+
+# MULTIPLE REGRESSION MODEL
+
+X = df[['Distance_km', 'Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type', 'Preparation_Time_min', 'Courier_Experience_yrs']]
+y = df['Delivery_Time_min']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 20)
+
+cat_col = ['Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type']
+transformer = make_column_transformer((OneHotEncoder(drop = 'first', sparse_output = False), cat_col), remainder = 'passthrough')
+pipe = Pipeline([('encode', transformer), ('model', LinearRegression())])
+pipe.fit(X_train, y_train)
+
+lr = pipe.named_steps['model']
+coefficients = lr.coef_
+names = transformer.get_feature_names_out()
+pd.DataFrame(coefficients, names)
+
+float(lr.intercept_)
+
+y_train_preds = pipe.predict(X_train)
+mean_squared_error(y_train, y_train_preds)
+
+y_test_preds = pipe.predict(X_test)
+mean_squared_error(y_test, y_test_preds)
+
+r = permutation_importance(pipe, X_test, y_test, n_repeats = 10)
+pd.DataFrame(r['importances_mean'], index = X_train.columns.tolist())
+
+# DECISION TREE REGRESSION MODEL
+
+X = df[['Distance_km', 'Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type', 'Preparation_Time_min', 'Courier_Experience_yrs']]
+y = df['Delivery_Time_min']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 20)
+
+cat_col = ['Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type']
+ohe = OneHotEncoder(sparse_output = False)
+encoder = make_column_transformer((ohe, cat_col), verbose_feature_names_out = False, remainder = 'passthrough')
+
+X_train_encoded = encoder.fit_transform(X_train)
+X_test_encoded = encoder.transform(X_test)
+
+train_scores = []
+test_scores = []
+for d in range(1, 20):
+    dtree = DecisionTreeRegressor(max_depth = d).fit(X_train_encoded, y_train)
+    y_train_preds = dtree.predict(X_train_encoded)
+    y_test_preds = dtree.predict(X_test_encoded)
+    train_scores.append(mean_squared_error(y_train, y_train_preds))
+    test_scores.append(mean_squared_error(y_test, y_test_preds))
+
+plt.plot(range(1, 20), train_scores, '--o', label = 'train')
+plt.plot(range(1, 20), test_scores, '--o', label = 'test')
+plt.grid()
+plt.legend()
+plt.xticks(range(1, 20))
+plt.xlabel('max tree depth')
+plt.ylabel('mean squared error')
+plt.title('Decision Tree Depth vs. Test/Train Accuracy');
+
+# RANDOM FOREST REGRESSION MODEL
+
+X = df[['Distance_km', 'Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type', 'Preparation_Time_min', 'Courier_Experience_yrs']]
+y = df['Delivery_Time_min']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 20)
+
+cat_col = ['Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type']
+transformer = make_column_transformer((OneHotEncoder(drop = 'first', sparse_output = False), cat_col), remainder = 'passthrough')
+
+pipe = Pipeline([('encode', transformer), ('model', RandomForestRegressor())])
+
+param_grid = {'model__n_estimators': [50, 100, 150, 200],'model__max_depth': [3, 4, 5, 6, 10]}
+
+grid_search = GridSearchCV(pipe, param_grid, cv=5, scoring='neg_mean_squared_error')
+grid_search.fit(X_train, y_train)
+
+grid_search.best_params_
+
+forest = grid_search.best_estimator_
+
+y_train_preds = forest.predict(X_train)
+mean_squared_error(y_train, y_train_preds)
+
+y_test_preds = forest.predict(X_test)
+mean_squared_error(y_test, y_test_preds)
+
+r = permutation_importance(forest, X_test, y_test, n_repeats = 10)
+pd.DataFrame(r['importances_mean'], index = X_train.columns.tolist())
+
+# GRADIENT BOOSTING REGRESSION MODEL
+
+X = df[['Distance_km', 'Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type', 'Preparation_Time_min', 'Courier_Experience_yrs']]
+y = df['Delivery_Time_min']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 20)
+
+cat_cols = ['Weather', 'Traffic_Level', 'Time_of_Day', 'Vehicle_Type']
+transformer = make_column_transformer((OneHotEncoder(drop='first', sparse_output=False), cat_cols), remainder='passthrough')
+
+gbr_pipe = Pipeline([('encode', transformer), ('model', GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=20))])
+
+gbr_pipe.fit(X_train, y_train)
+
+y_pred = gbr_pipe.predict(X_test)
+
+mse = mean_squared_error(y_test, y_pred)
